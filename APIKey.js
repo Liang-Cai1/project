@@ -16,11 +16,14 @@ if (!API_KEY) {
 
 function apiKeyMiddleware(req, res, next) {
   const apiKeyFromHeader = req.header('x-api-key');
+  const apiKeyFromQuery = req.query.api_key;
 
-  if (!apiKeyFromHeader) {
+  const providedApiKey = apiKeyFromHeader || apiKeyFromQuery;
+
+  if (!providedApiKey) {
     return res.status(401).json({ message: 'API Key is missing' });
   }
-  if (apiKeyFromHeader !== API_KEY) {
+  if (providedApiKey !== API_KEY) {
     return res.status(403).json({ message: 'API Key is invalid' });
   }
   next();
