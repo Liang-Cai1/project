@@ -35,7 +35,7 @@ app.get('/customers', checkAPIKey, async (req, res) => {
   }
 });
 
-app.get("/customers/find/", async (req, res) => {
+app.get("/customers/find/", checkAPIKey, async (req, res) => {
     let id = +req.query.id;
     let email = req.query.email;
     let password = req.query.password;
@@ -61,7 +61,7 @@ app.get("/customers/find/", async (req, res) => {
     }
 });
 
-app.get("/customers/:id", async (req, res) => {
+app.get("/customers/:id", checkAPIKey, async (req, res) => {
      const id = req.params.id;
      const [cust, err] = await da.getCustomerById(id);
      if(cust){
@@ -82,26 +82,38 @@ app.get("/reset", async (req, res) => {
     }   
 });
 
-app.post('/customers', async (req, res) => {
+app.post('/customers', checkAPIKey, async (req, res) => {
     const newCustomer = req.body;
-    if (newCustomer === null || req.body == {}) {
-        res.status(400);
-        res.send("missing request body");
+    if (!newCustomer || Object.keys(newCustomer).length === 0) {
+        res.status(400).send("missing request body");
+        return;
+    }
+
+    if (!newCustomer.id) {
+        res.status(400).send("customer ID is required");
+        return;
+    }
+
+    const [existingCustomers, err] = await da.findCustomers({ id: newCustomer.id });
+    if (existingCustomers && existingCustomers.length > 0) {
+        res.status(409).send(`Customer with ID ${newCustomer.id} already exists.`);
+        return;
+    }
+
+    const [status, id, errMessage] = await da.addCustomer(newCustomer);
+
+    if (status === "success") {
+        res.status(201);
+        let response = { ...newCustomer };
+        response["_id"] = id;
+        res.send(response);
     } else {
-        const [status, id, errMessage] = await da.addCustomer(newCustomer);
-        if (status === "success") {
-            res.status(201);
-            let response = { ...newCustomer };
-            response["_id"] = id;
-            res.send(response);
-        } else {
-            res.status(400);
-            res.send(errMessage);
-        }
+        res.status(400);
+        res.send(errMessage);
     }
 });
 
-app.put('/customers/:id', async (req, res) => {
+app.put('/customers/:id', checkAPIKey, async (req, res) => {
     const id = req.params.id;
     const updatedCustomer = req.body;
     if (updatedCustomer === null || req.body == {}) {
@@ -119,7 +131,7 @@ app.put('/customers/:id', async (req, res) => {
     }
 });
 
-app.delete("/customers/:id", async (req, res) => {
+app.delete("/customers/:id", checkAPIKey, async (req, res) => {
     const id = req.params.id;
     const [message, errMessage] = await da.deleteCustomerById(id);
     if (message) {
