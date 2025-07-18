@@ -2,8 +2,8 @@ const express = require('express');
 const da = require("./data-access");
 const bodyParser = require('body-parser');
 const path = require('path');
-const apiKeyMiddleware = require("./APIKey").apiKeyMiddleware;
-const API_KEY = require("./APIKey");
+const checkAPIKey = require("./APIKey").checkAPIKey;
+const getNewAPIKey = require("./APIKey").getNewAPIKey;
 const app = express();
 const port = process.env.PORT || 4000;
 
@@ -13,16 +13,52 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
-  console.log(`Using API key: ${API_KEY ? '*****' : 'not set'}`);
 });
 
-app.get('/customers', apiKeyMiddleware, async (req, res) => {
+app.get("/APIKey", async (req, res) => {
+    let email = req.query.email;
+    if(email){
+        const newAPIKey = getNewAPIKey(email);
+        res.send(newAPIKey);
+    }else{
+        res.status(400);
+        res.send("an email query param is required");
+    }   
+});
+
+app.get('/customers', checkAPIKey, async (req, res) => {
   try {
     const cust = await da.getCustomers();
     res.send(cust);
   } catch (err) {
     res.status(500).send({ error: err.message || err });
   }
+});
+
+app.get("/customers/find/", async (req, res) => {
+    let id = +req.query.id;
+    let email = req.query.email;
+    let password = req.query.password;
+    let query = null;
+    if (id > -1) {
+        query = { "id": id };
+    } else if (email) {
+        query = { "email": email };
+    } else if (password) {
+        query = { "password": password }
+    }
+    if (query) {
+        const [customers, err] = await da.findCustomers(query);
+        if (customers) {
+            res.send(customers);
+        } else {
+            res.status(404);
+            res.send(err);
+        }
+    } else {
+        res.status(400);
+        res.send("query string is required");
+    }
 });
 
 app.get("/customers/:id", async (req, res) => {

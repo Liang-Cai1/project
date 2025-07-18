@@ -1,32 +1,60 @@
-let apiKeyFromCmd = null;
-process.argv.forEach(arg => {
-  if (arg.startsWith('--api-key=')) {
-    apiKeyFromCmd = arg.split('=')[1];
-  }
-});
+var crypto = require('crypto');
 
-const apiKeyFromEnv = process.env.API_KEY;
+let APIKey = null;
+let allAPIKeys = new Map();
 
-const API_KEY = apiKeyFromCmd || apiKeyFromEnv;
-
-if (!API_KEY) {
-  console.error('Error: API key not provided. Please specify it via --api-key argument or API_KEY environment variable.');
-  process.exit(1);
+function getNewAPIKey(email) {
+const newAPIKey = crypto.randomBytes(6).toString('hex');
+  allAPIKeys.set(email, newAPIKey);
+  displayAPIKeys();
+  return newAPIKey;
 }
 
-function apiKeyMiddleware(req, res, next) {
-  const apiKeyFromHeader = req.header('x-api-key');
-  const apiKeyFromQuery = req.query.api_key;
+function displayAPIKeys() {
+  console.log("allAPIKeys:");
+  for (let entry of allAPIKeys.entries()) {
+    console.log(entry)
+  }
+}
 
-  const providedApiKey = apiKeyFromHeader || apiKeyFromQuery;
+function setAPIKey() {
+  let APIKey = process.env.API_KEY;
 
-  if (!providedApiKey) {
+    process.argv.forEach(arg => {
+    if (arg.startsWith('--api-key=')) {
+      apiKey = arg.split('=')[1];
+    }
+  });
+
+  if (APIKey) {
+    allAPIKeys.set("default", APIKey);
+    displayAPIKeys();
+  } else {
+    console.log("APIKey has no value. Please provide a value through the API_KEY env var or --api-key cmd line parameter.");
+    process.exit(1);
+  }
+}
+
+function checkAPIKey(req, res, next) {
+  const APIKeyHeader = req.query.APIKey || req.headers['x-api-key'];
+
+  if (!APIKeyHeader) {
     return res.status(401).json({ message: 'API Key is missing' });
   }
-  if (providedApiKey !== API_KEY) {
+
+  let ValidKey = false;
+  for (let value of allAPIKeys.values()) {
+    if (APIKeyHeader === value) {
+      ValidKey = true;
+    }
+  }
+	if (!ValidKey) {
     return res.status(403).json({ message: 'API Key is invalid' });
   }
+
   next();
 }
 
-module.exports = {apiKeyMiddleware, API_KEY};
+setAPIKey();
+
+module.exports = { setAPIKey, checkAPIKey, getNewAPIKey };

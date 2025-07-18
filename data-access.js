@@ -14,7 +14,7 @@ async function dbStartup() {
 async function getCustomers() {
      try {
          const customers = await collection.find().toArray();
-         return [customers, null];
+         return [customers];
      } catch (err) {
          console.log(err.message);
          return [null, err.message];
@@ -77,6 +77,20 @@ async function updateCustomer(updatedCustomer) {
     }
 }
 
+async function findCustomers(filterObject) {
+    try {
+        const customers = await collection.find(filterObject).toArray();
+        // return array [customer, errMessage]
+        if(!customers || customers.length == 0 ){
+          return [null, "no customer documents found"];
+        }
+        return [customers, null];
+    } catch (err) {
+        console.log(err.message);
+        return [null, err.message];
+    }
+}
+
 async function deleteCustomerById(id) {
     try {
         const deleteResult = await collection.deleteOne({ "id": +id });
@@ -95,4 +109,4 @@ async function deleteCustomerById(id) {
 }
 
 dbStartup();
-module.exports = { getCustomers, resetCustomers, addCustomer, getCustomerById,  updateCustomer,  deleteCustomerById };
+module.exports = { getCustomers, resetCustomers, addCustomer, getCustomerById,  updateCustomer,  deleteCustomerById, findCustomers };
